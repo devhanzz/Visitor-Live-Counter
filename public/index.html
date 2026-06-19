@@ -41,7 +41,6 @@
         .user-device { font-weight: 600; color: #e2e8f0; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; }
         .user-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
         .user-country { background-color: #1e293b; border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 10px; font-size: 0.8rem; font-weight: 600; color: #e2e8f0; }
-        .badge-left { background-color: rgba(100, 116, 139, 0.2); color: #94a3b8; font-size: 0.7rem; padding: 2px 6px; border-radius: 6px; font-weight: 700; }
         .no-data { text-align: center; padding: 30px; color: var(--text-muted); font-size: 0.9rem; font-style: italic; }
         @keyframes blink { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
     </style>
@@ -72,6 +71,15 @@
 
         if (typeof io !== 'undefined') {
             const socket = io();
+
+            socket.on('connect', () => {
+                // KUKUNIN ANG MISMONG ORAS NG DEVICE NG BUMIBISITA (LOCAL TIME NILA)
+                const now = new Date();
+                const localTimeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                // Ipadala sa server ang tunay nilang oras
+                socket.emit('initUser', { localTime: localTimeString });
+            });
 
             socket.on('updateUsers', (data) => {
                 globalData = data;
