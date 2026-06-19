@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const axios = require('axios');
 
 const app = express();
 const server = http.createServer(app);
@@ -14,7 +15,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 let activeUsers = {};
 let recentVisitors = [];
 
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
     const ua = socket.handshake.headers['user-agent'] || '';
     let device = "Desktop PC";
 
@@ -41,14 +42,28 @@ io.on('connection', (socket) => {
     } 
     else if (/iPhone/i.test(ua)) {
         device = "iPhone";
-        if (/iPhone15|iPhone16|iPhone17/i.test(ua)) device = "iPhone (New Model)";
     }
     else if (/iPad/i.test(ua)) device = "iPad";
     else if (/Windows/i.test(ua)) device = "Windows PC";
     else if (/Macintosh/i.test(ua)) device = "MacBook";
     else if (/linux/i.test(ua)) device = "Linux PC";
 
-    let country = socket.handshake.headers['x-viewer-country'] || "Philippines"; 
+    let ip = socket.handshake.headers['x-forwarded-for'] || socket.request.connection.remoteAddress || '';
+    if (ip.includes(',')) {
+        ip = ip.split(',')[0].trim();
+    }
+
+    let country = "Philippines";
+    try {
+        if (ip && ip !== '::1' && ip !== '127.0.0.1') {
+            const response = await axios.get(`http://ip-api.com/json/${ip}?fields=country`);
+            if (response.data && response.data.country) {
+                country = response.data.country;
+            }
+        }
+    } catch (error) {
+        country = "Philippines";
+    }
 
     socket.on('initUser', (data) => {
         const userTime = data.localTime || "00:00 AM";
