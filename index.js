@@ -14,7 +14,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 let activeUsers = {};
 let recentVisitors = [];
 
-io.on('connection', async (socket) => {
+io.on('connection', (socket) => {
     const ua = socket.handshake.headers['user-agent'] || '';
     let device = "Desktop PC";
     if (/android/i.test(ua)) device = "Android Phone";
@@ -23,43 +23,46 @@ io.on('connection', async (socket) => {
     else if (/Macintosh/i.test(ua)) device = "MacBook";
 
     let country = socket.handshake.headers['x-viewer-country'] || "Philippines"; 
-    
-    const now = new Date();
-    const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    const userData = {
-        id: socket.id,
-        device: device,
-        country: country,
-        time: timeString
-    };
+    socket.on('initUser', (data) => {
+        const userTime = data.localTime || "00:00 AM";
 
-    activeUsers[socket.id] = userData;
+        const userData = {
+            id: socket.id,
+            device: device,
+            country: country,
+            time: userTime
+        };
 
-    recentVisitors.unshift({ ...userData, disconnected: false });
-    if (recentVisitors.length > 30) { 
-        recentVisitors.pop();
-    }
+        activeUsers[socket.id] = userData;
 
-    io.emit('updateUsers', {
-        active: Object.values(activeUsers),
-        recent: recentVisitors
-    });
-
-    socket.on('disconnect', () => {
-        delete activeUsers[socket.id];
-        
-        recentVisitors = recentVisitors.map(user => {
-            if (user.id === socket.id) {
-                return { ...user, disconnected: true };
-            }
-            return user;
-        });
+        recentVisitors.unshift({ ...userData, disconnected: false });
+        if (recentVisitors.length > 30) { 
+            recentVisitors.pop();
+        }
 
         io.emit('updateUsers', {
             active: Object.values(activeUsers),
             recent: recentVisitors
         });
+    });
+
+    socket.on('disconnect', () => {
+        if (activeUsers[socket.id]) {
+            delete activeUsers[socket.id];
+            
+            recentVisitors = recentVisitors.map(user => {
+                if (user.id === socket.id) {
+                    return { ...user, disconnected: true };
+                }
+                return user;
+            });
+
+            io.emit('updateUsers', {
+                active: Object.values(activeUsers),
+                recent: recentVisitors
+            });
+        }
     });
 });
 
