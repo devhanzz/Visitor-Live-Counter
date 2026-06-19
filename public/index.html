@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Analytics Dashboard</title>
+    <script src="/socket.io/socket.io.js"></script>
+    
+    <style>
+        :root {
+            --bg-main: #0b0f19;
+            --bg-card: #131c2e;
+            --border-color: #22314d;
+            --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.3);
+            --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.2);
+            --text-main: #f8fafc;
+            --text-muted: #64748b;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', system-ui, sans-serif; }
+        body { background-color: var(--bg-main); color: var(--text-main); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; background-image: radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 40%); }
+        .counter-card { background: linear-gradient(145deg, var(--bg-card), #111827); border: 1px solid var(--border-color); border-radius: 24px; padding: 32px; text-align: center; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); max-width: 440px; width: 100%; margin-bottom: 24px; position: relative; }
+        .counter-title { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 2px; color: var(--text-muted); font-weight: 700; margin-bottom: 8px; }
+        .counter-number { font-size: 5.5rem; font-weight: 800; color: var(--primary); font-family: monospace; line-height: 1; margin-bottom: 12px; text-shadow: 0 0 30px var(--primary-glow); }
+        .live-badge { display: inline-flex; align-items: center; background-color: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); color: var(--primary); padding: 6px 16px; border-radius: 99px; font-size: 0.8rem; font-weight: 700; letter-spacing: 1px; }
+        .live-dot { width: 8px; height: 8px; background-color: var(--primary); border-radius: 50%; display: inline-block; margin-right: 8px; box-shadow: 0 0 10px var(--primary); animation: blink 1.5s infinite; }
+        .users-container { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 24px; padding: 24px; max-width: 600px; width: 100%; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3); position: relative; }
+        .users-header { margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; display: flex; align-items: center; padding-right: 120px; }
+        #listTitle { font-size: 1.15rem; font-weight: 700; color: var(--text-main); }
+        .users-count-tag { font-size: 0.75rem; background-color: #1e293b; border: 1px solid var(--border-color); padding: 4px 12px; border-radius: 99px; color: #94a3b8; margin-left: 10px; font-weight: 600; }
+        .toggle-btn { position: absolute; top: 20px; right: 24px; background-color: #1e293b; border: 1px solid var(--border-color); color: #cbd5e1; padding: 8px 16px; border-radius: 12px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: all 0.2s ease; z-index: 10; }
+        .toggle-btn:hover { background-color: #22314d; color: #fff; }
+        .toggle-btn.active-view { background-color: var(--primary); border-color: #60a5fa; color: #ffffff; box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); }
+        .user-list { list-style: none; max-height: 320px; overflow-y: auto; padding-right: 4px; }
+        .user-list::-webkit-scrollbar { width: 6px; }
+        .user-list::-webkit-scrollbar-thumb { background-color: var(--border-color); border-radius: 99px; }
+        .user-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background-color: #0b0f19; border: 1px solid rgba(255, 255, 255, 0.02); margin-bottom: 10px; border-radius: 16px; border-left: 4px solid var(--primary); }
+        .user-item.current-user { border-left-color: var(--success); background: linear-gradient(90deg, rgba(16, 185, 129, 0.04), transparent); }
+        .user-item.offline-user { border-left-color: #475569; opacity: 0.45; }
+        .user-device { font-weight: 600; color: #e2e8f0; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; }
+        .user-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+        .user-country { background-color: #1e293b; border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 10px; font-size: 0.8rem; font-weight: 600; color: #e2e8f0; }
+        .badge-you { background-color: rgba(16, 185, 129, 0.15); color: var(--success); font-size: 0.7rem; padding: 2px 6px; border-radius: 6px; font-weight: 700; }
+        .badge-left { background-color: rgba(100, 116, 139, 0.2); color: #94a3b8; font-size: 0.7rem; padding: 2px 6px; border-radius: 6px; font-weight: 700; }
+        .no-data { text-align: center; padding: 30px; color: var(--text-muted); font-size: 0.9rem; font-style: italic; }
+        @keyframes blink { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="counter-card">
+        <h2 class="counter-title">Active Visitors</h2>
+        <div class="counter-number" id="visitorCount">0</div>
+        <div class="live-badge">
+            <span class="live-dot"></span>LIVE TRACKING
+        </div>
+    </div>
+
+    <div class="users-container">
+        <div class="users-header">
+            <span id="listTitle">Active Devices</span>
+            <span class="users-count-tag" id="listCount">0 Active</span>
+        </div>
+        
+        <button class="toggle-btn" id="viewToggleBtn" onclick="toggleView()">Recent</button>
+        <ul class="user-list" id="userList"></ul>
+    </div>
+
+    <script>
+        let globalData = { active: [], recent: [] };
+        let currentView = 'ACTIVE';
+        let myLiveSocketId = null;
+
+        if (typeof io !== 'undefined') {
+            const socket = io();
+
+            socket.on('connect', () => {
+                myLiveSocketId = socket.id;
+            });
+
+            socket.on('updateUsers', (data) => {
+                globalData = data;
+                renderList();      
+            });
+        } else {
+            setTimeout(() => { renderList(); }, 300);
+        }
+
+        function renderList() {
+            const activeCount = globalData.active.length;
+            const countEl = document.getElementById('visitorCount');
+            countEl.innerText = activeCount;
+            
+            if(activeCount > 1) {
+                countEl.style.color = 'var(--success)';
+                countEl.style.textShadow = '0 0 30px var(--success-glow)';
+            } else {
+                countEl.style.color = 'var(--primary)';
+                countEl.style.textShadow = '0 0 30px var(--primary-glow)';
+            }
+
+            const userListEl = document.getElementById('userList');
+            userListEl.innerHTML = '';
+
+            const targetList = currentView === 'ACTIVE' ? globalData.active : globalData.recent;
+            
+            if (currentView === 'ACTIVE') {
+                document.getElementById('listTitle').innerText = "Active Devices";
+                document.getElementById('listCount').innerText = `${activeCount} Online`;
+                document.getElementById('viewToggleBtn').classList.remove('active-view');
+                document.getElementById('viewToggleBtn').innerText = "Recent";
+            } else {
+                document.getElementById('listTitle').innerText = "Recent Access History";
+                document.getElementById('listCount').innerText = `${globalData.recent.length} Total Logs`;
+                document.getElementById('viewToggleBtn').classList.add('active-view');
+                document.getElementById('viewToggleBtn').innerText = "Show Live";
+            }
+
+            if (targetList.length === 0) {
+                userListEl.innerHTML = `<li class="no-data">No active connections found. Waiting for server...</li>`;
+                return;
+            }
+
+            targetList.forEach(user => {
+                const isYou = (user.id === myLiveSocketId);
+                const isOffline = user.disconnected === true;
+
+                const li = document.createElement('li');
+                li.className = `user-item ${isYou ? 'current-user' : ''} ${isOffline ? 'offline-user' : ''}`;
+                
+                li.innerHTML = `
+                    <div>
+                        <div class="user-device">
+                            ${user.device} 
+                            ${isYou ? '<span class="badge-you">YOU</span>' : ''}
+                            ${isOffline ? '<span class="badge-left">LEFT</span>' : ''}
+                        </div>
+                        <div class="user-meta">${currentView === 'ACTIVE' ? 'Connected at' : 'Time log'}: ${user.time}</div>
+                    </div>
+                    <span class="user-country">${user.country}</span>
+                `;
+                userListEl.appendChild(li);
+            });
+        }
+
+        function toggleView() {
+            currentView = currentView === 'ACTIVE' ? 'RECENT' : 'ACTIVE';
+            renderList();
+        }
+    </script>
+</body>
+</html>
