@@ -37,12 +37,10 @@
         .user-list::-webkit-scrollbar { width: 6px; }
         .user-list::-webkit-scrollbar-thumb { background-color: var(--border-color); border-radius: 99px; }
         .user-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background-color: #0b0f19; border: 1px solid rgba(255, 255, 255, 0.02); margin-bottom: 10px; border-radius: 16px; border-left: 4px solid var(--primary); }
-        .user-item.current-user { border-left-color: var(--success); background: linear-gradient(90deg, rgba(16, 185, 129, 0.04), transparent); }
         .user-item.offline-user { border-left-color: #475569; opacity: 0.45; }
         .user-device { font-weight: 600; color: #e2e8f0; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; }
         .user-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
         .user-country { background-color: #1e293b; border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 10px; font-size: 0.8rem; font-weight: 600; color: #e2e8f0; }
-        .badge-you { background-color: rgba(16, 185, 129, 0.15); color: var(--success); font-size: 0.7rem; padding: 2px 6px; border-radius: 6px; font-weight: 700; }
         .badge-left { background-color: rgba(100, 116, 139, 0.2); color: #94a3b8; font-size: 0.7rem; padding: 2px 6px; border-radius: 6px; font-weight: 700; }
         .no-data { text-align: center; padding: 30px; color: var(--text-muted); font-size: 0.9rem; font-style: italic; }
         @keyframes blink { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
@@ -71,14 +69,9 @@
     <script>
         let globalData = { active: [], recent: [] };
         let currentView = 'ACTIVE';
-        let myLiveSocketId = null;
 
         if (typeof io !== 'undefined') {
             const socket = io();
-
-            socket.on('connect', () => {
-                myLiveSocketId = socket.id;
-            });
 
             socket.on('updateUsers', (data) => {
                 globalData = data;
@@ -124,17 +117,15 @@
             }
 
             targetList.forEach(user => {
-                const isYou = (user.id === myLiveSocketId);
                 const isOffline = user.disconnected === true;
 
                 const li = document.createElement('li');
-                li.className = `user-item ${isYou ? 'current-user' : ''} ${isOffline ? 'offline-user' : ''}`;
+                li.className = `user-item ${isOffline ? 'offline-user' : ''}`;
                 
                 li.innerHTML = `
                     <div>
                         <div class="user-device">
                             ${user.device} 
-                            ${isYou ? '<span class="badge-you">YOU</span>' : ''}
                             ${isOffline ? '<span class="badge-left">LEFT</span>' : ''}
                         </div>
                         <div class="user-meta">${currentView === 'ACTIVE' ? 'Connected at' : 'Time log'}: ${user.time}</div>
