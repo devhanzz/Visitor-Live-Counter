@@ -26,12 +26,14 @@ io.on('connection', (socket) => {
 
     socket.on('initUser', (data) => {
         const userTime = data.localTime || "00:00 AM";
+        const userDate = data.localDate || "";
 
         const userData = {
             id: socket.id,
             device: device,
             country: country,
-            time: userTime
+            time: userTime,
+            date: userDate
         };
 
         activeUsers[socket.id] = userData;
