@@ -75,7 +75,12 @@
             socket.on('connect', () => {
                 const now = new Date();
                 const localTimeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                socket.emit('initUser', { localTime: localTimeString });
+                const localDateString = now.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+                
+                socket.emit('initUser', { 
+                    localTime: localTimeString,
+                    localDate: localDateString
+                });
             });
 
             socket.on('updateUsers', (data) => {
@@ -133,7 +138,9 @@
                             ${user.device} 
                             ${isOffline ? '<span class="badge-left">LEFT</span>' : ''}
                         </div>
-                        <div class="user-meta">${currentView === 'ACTIVE' ? 'Connected at' : 'Time log'}: ${user.time}</div>
+                        <div class="user-meta">
+                            ${currentView === 'ACTIVE' ? 'Connected' : 'Logged'}: ${user.date} at ${user.time}
+                        </div>
                     </div>
                     <span class="user-country">${user.country}</span>
                 `;
