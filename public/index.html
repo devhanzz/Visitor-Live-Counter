@@ -73,11 +73,8 @@
             const socket = io();
 
             socket.on('connect', () => {
-                // KUKUNIN ANG MISMONG ORAS NG DEVICE NG BUMIBISITA (LOCAL TIME NILA)
                 const now = new Date();
                 const localTimeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                
-                // Ipadala sa server ang tunay nilang oras
                 socket.emit('initUser', { localTime: localTimeString });
             });
 
